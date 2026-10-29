@@ -1,0 +1,317 @@
+import  "assets/Notosans-Regular.ttf";
+import { DefaultButton} from "components.slint";
+import { BaseWindow } from "base-window.slint";
+
+import { Button, Slider, VerticalBox, ScrollView, AboutSlint, LineEdit, HorizontalBox, CheckBox, ListView } from "std-widgets.slint";
+export component GifWindow inherits Window {
+    callback MoveWindow(length, length);
+
+    in-out property <length> ImageXWidth: 100px;
+    in-out property <length> ImageXHeight: 100px;
+
+    in-out property <image> currentImage;
+
+    in-out property <[image]> frames;
+    in-out property <int> currentImageIndex: 0;
+
+    in-out property <bool> Locked;
+    
+
+    max-width: root.ImageXWidth;
+    max-height: root.ImageXHeight;
+
+    min-width: root.ImageXWidth;
+    min-height: root.ImageXHeight;
+
+    no-frame: true;
+    background: transparent;
+
+    full-screen: false;
+    always-on-top: true;
+
+    title: "Overlay";
+
+    TouchArea {
+        enabled: !Locked;
+        moved => {
+            MoveWindow(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y)
+        }
+    }
+    Image {
+        source: root.frames[currentImageIndex];
+        width: 100%;
+        height: 100%;
+    }
+}
+
+export component MainWindowTray inherits SystemTrayIcon {
+    callback quit();
+    callback show();
+
+    icon: @image-url("assets/test.png");
+    tooltip: "OmoSlop";
+
+    Menu {
+        MenuItem {
+            title: "Show";
+            activated => {
+                show();
+            }
+        }
+        MenuItem {
+            title: "Quit";
+            activated => {
+                quit();
+            }
+        }
+    }
+}
+
+export component SettingsParamBackground {
+    in-out property <string> title;
+    
+    Rectangle {
+        width: parent.width;
+        height: parent.height * 0.15;
+
+        Text {
+            x: 0px;
+
+            text: title;
+
+            font-family: "Noto Sans";
+            font-size: 15px;
+
+            horizontal-alignment: left;
+            color: lightgray;
+        }
+        Rectangle {
+            width: parent.width * 0.4;
+            height: parent.height;
+
+            y: 0; //parent.height * 0.5;
+            x: parent.width * 0.5;
+
+            @children
+        }
+        
+    }
+}
+export component SettingsWindow inherits Window {
+    callback ScaleChanged(float);
+    callback LockChanged(bool);
+
+    default-font-family: "Noto Sans";
+
+    min-width: 410px;
+    min-height: 550px;
+
+    max-width: 410px;
+    max-height: 550px;
+
+    title: "Settings";
+
+    VerticalBox {
+        height: 90%;
+        width: 90%;
+        
+        alignment: center;
+
+        ScrollView {
+            height: 100%;
+            width: 100%;
+
+            content-height: 500px;
+
+            VerticalBox { 
+                width: 100%;
+                height: 100%;
+                SettingsParamBackground {
+                    height: 50px;
+                    title: "Scale of the overlay: ";
+
+                    Slider {
+                        minimum: 0;
+                        maximum: 10;
+                        min-height: 15px;
+                        min-width: parent.width / 2;
+                        step: 0.05;
+                        value: 1;
+
+                        changed(value) => {
+                            ScaleChanged(value);
+                        }
+                    }
+                  
+                }
+                SettingsParamBackground {
+                    height: 50px;
+                    title: "Lock Overlay Position: ";
+
+                    CheckBox {
+                        x: 0;
+
+                        toggled() => {
+                            LockChanged(self.checked);
+                        }
+                    }
+                  
+                }
+                
+                
+               
+            }
+          
+           
+        }
+    }
+    
+}
+export component SelectGifButton {
+    callback Clicked();
+
+    in-out property <string> text;
+
+    Rectangle {
+        width: 100px;
+        height: 100px;
+
+        background: gray;
+
+        // Image {
+        //     width: parent.width;
+        //     height: parent.height;
+        //     x: 0;
+        //     y: 0;
+
+        //     source: @image-url("assets/minimize.png");
+        // }
+        Text {
+            text: text;
+        }
+        Button {
+            width: 100%;
+            height: 100%;
+            
+            clicked => {
+                Clicked();
+            }
+        }
+    }
+}
+export struct ImageData {
+    name: string,
+
+}
+export component MainWindow inherits Window {
+    callback FileChooser();
+    callback OpenSettings();
+
+    callback AddOverlay(string);
+
+    property <string> current_selected_image;
+
+    in-out property <[ImageData]> ImagesData;
+    title: "OmoSlop";
+
+    preferred-height: 600px;
+    preferred-width: 1000px;
+
+    min-height: 480px;
+    min-width: 620px;
+
+    VerticalLayout {
+        width: 80%;
+        height: 10%;
+        
+
+        y: 0px;
+        alignment: center;
+        cross-axis-alignment: end;
+
+        DefaultButton {
+            text: "Settings";
+
+            clicked => {
+                OpenSettings();
+            }
+        }
+
+       
+    }
+
+   
+    HorizontalLayout {
+        width: 60%;
+        height: 80%;
+        
+        padding-top: 40px;
+        padding-left: 25px;
+
+        spacing: 60px;
+
+       
+        
+        x: 10px;
+
+        alignment: start;
+        cross-axis-alignment: CrossAxisAlignment.start;
+
+        SelectGifButton {
+            text: "Add Image";
+
+            Clicked => {
+                FileChooser();
+            }
+        }
+
+        for data in root.ImagesData: SelectGifButton {
+            text: data.name;
+
+            Clicked => {
+                AddOverlay(data.name);
+            }
+        }
+        
+        
+    }
+
+    ScrollView {
+        
+        VerticalBox {
+            width: 40%;
+            alignment: LayoutAlignment.stretch;
+            cross-axis-alignment: CrossAxisAlignment.center;
+            height: 80%;
+
+
+            x: root.width - self.width - 10px;
+            
+            Rectangle {
+                width: parent.width;
+                height: parent.height * 0.5;
+
+                Rectangle {
+                    // x: parent.width / 2;
+                    // y: parent.height / 2;
+                    
+                    background: gray;
+
+                    width: parent.height < parent.width ? parent.height : parent.width ;
+                    height: self.width;
+
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+            
+
+            DefaultButton {
+                width: 5%;
+                height: 5%;
+                text: "Add";
+            }
+        }
+    }
+   
+}

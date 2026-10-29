@@ -1,0 +1,76 @@
+import { Button, HorizontalBox } from "std-widgets.slint";
+component TopBarButton {
+    callback clicked();
+
+    in-out property <image> image;
+
+    in-out property <float> scale;
+
+    Image {
+        width: 32px * scale;
+        height: 32px * scale;
+        source: image;
+        colorize: white;
+
+        TouchArea {
+            clicked => {
+                clicked();
+            }
+            
+        }
+    }
+}
+
+export component BaseWindow inherits Window {
+    callback MoveWindowUp(length, length);
+
+    in-out property <string> Title;
+
+    full-screen: false;
+
+    no-frame: true;
+    
+    Rectangle {
+        width: 100%;
+        height: 30px;
+
+        y: 0px;
+
+        Text {
+            text: Title;
+        }
+        TouchArea {
+            moved => {
+                MoveWindowUp(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+            }
+        }
+        HorizontalBox {
+            width: 100px;
+            x: parent.width - self.width;
+            alignment: end;
+
+            TopBarButton {
+                image: @image-url("assets/minimize.png");
+                scale: 0.5;
+                clicked => {
+                    root.minimized = !root.minimized;
+                }
+            }
+            TopBarButton {
+                image: @image-url("assets/fullscreen.png");
+                scale: 0.5;
+                clicked => {
+                    root.maximized = true;
+                }
+            }
+            TopBarButton {
+                image: @image-url("assets/close.png");
+                scale: 1;
+                clicked => {
+                    root.close();
+                }
+            }
+            
+        }
+    }
+}

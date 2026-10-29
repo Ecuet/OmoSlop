@@ -1,0 +1,23 @@
+[package]
+name = "slint-rust-template"
+version = "0.1.0"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gif = "0.14.2"
+i-slint-backend-winit = "1.18.1"
+rfd = "0.17.2"
+serde = "1.0.229"
+serde_json = "1.0"
+slint = { version = "1.18.1"}
+tokio = "1.53.3"
+windows-sys = { version = "0.59", features = [ "Win32_UI_WindowsAndMessaging" ] }
+ 
+[build-dependencies]
+slint-build = "1.18.1" 
+
+[profile.release]
+codegen-units = 1
+lto = true

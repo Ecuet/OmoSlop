@@ -1,0 +1,12 @@
+import { Button } from "std-widgets.slint";
+export component DefaultButton {
+    in property <string> text;
+
+    callback clicked();
+
+    Button {
+        text: text;
+
+        clicked => {clicked()}
+    }
+}
