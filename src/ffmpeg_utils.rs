@@ -5,8 +5,7 @@ use std::process::Command;
 use crate::image_utils;
 
 
-pub const output_path: &str = "gif/output";
-pub const input_path: &str = "gif/input";
+pub const OUTPUT_PATH: &str = "gif/output";
 
 fn prepare_output_folder(path: &str) -> Result<(), std::io::Error> {
     let _ = fs::remove_dir_all(&path);
@@ -25,7 +24,7 @@ fn create_default_folders() -> Result<(), std::io::Error> {
 }
 
 pub fn get_output_path(gif_name: &str) -> String {
-    format!("{output_path}/{gif_name}")
+    format!("{OUTPUT_PATH}/{gif_name}")
 }
 
 

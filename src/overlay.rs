@@ -1,13 +1,11 @@
 use core::time;
-use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::sync::atomic::AtomicBool;
 use std::thread;
-use std::time::Duration;
 
-use slint::{Image, ModelRc, VecModel, Weak};
+use slint::{ComponentHandle, Image, ModelRc, VecModel, Weak};
 
-use crate::app::GifWindow;
+use crate::app::{GifWindow, GifWindows};
 use crate::{ffmpeg_utils, image_utils};
 use crate::image_utils::get_directory_length;
 
@@ -22,11 +20,26 @@ impl Overlay for OverlayKind {
         
         }
     }
-  
+    fn add_gif_window(&mut self, gif_window: &GifWindow) { 
+        match self {
+            OverlayKind::Animated(o) => o.add_gif_window(&gif_window),
+        
+        }
+    }
+    fn remove_gif_window(&mut self, gif_window: &GifWindow) { 
+        match self {
+            OverlayKind::Animated(o) => o.remove_gif_window(&gif_window),
+        
+        }
+    }
 }
 
 pub trait Overlay {
     fn load_file(&mut self,path: &str, force:bool) -> Result<(), Box<dyn std::error::Error>>;
+
+    fn add_gif_window(&mut self, gif_window: &GifWindow);
+
+    fn remove_gif_window(&mut self, gif_window: &GifWindow);
 }
 
 pub struct AnimatedOverlay {
@@ -37,7 +50,9 @@ pub struct AnimatedOverlay {
 
     is_destroyed: Arc<AtomicBool>,
 
-    ui_handle: Weak<GifWindow>
+    weak_gifs: Arc<RwLock<Vec<Weak<GifWindow>>>>,
+
+    gif_window: GifWindows
 }
 
 impl Overlay for AnimatedOverlay {
@@ -49,6 +64,24 @@ impl Overlay for AnimatedOverlay {
 
         Ok(())
     }
+    fn add_gif_window(&mut self, gif_window: &GifWindow) {
+        //let gif_windows = self.gif_window.read().unwrap();
+        let frames = self.frames.clone();
+
+        //let weak: Vec<Weak<GifWindow>> = gif_windows.iter().map(|i| i.as_weak()).collect();
+
+        self.weak_gifs.write().unwrap().push(gif_window.as_weak()); // = weak; 
+
+        gif_window.set_frames(ModelRc::new(VecModel::from(frames.clone())));
+    }
+
+    fn remove_gif_window(&mut self, gif_window: &GifWindow) {
+        let mut write = self.weak_gifs.write().unwrap();
+        let find = write.iter().position(|x| x.upgrade().unwrap().get_id() == gif_window.get_id());
+        if let Some(id) = find {
+            write.remove(id);
+        }
+    }
 }
 
 impl Drop for AnimatedOverlay {
@@ -56,9 +89,9 @@ impl Drop for AnimatedOverlay {
         self.is_destroyed.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }
-
+ 
 impl AnimatedOverlay {    
-    pub fn new(gif_window: Weak<GifWindow>) -> Self {
+    pub fn new(gif_windows: GifWindows) -> Self {
         Self {
             frames: Vec::new(),
 
@@ -66,7 +99,9 @@ impl AnimatedOverlay {
             delays: Vec::new(),
             is_destroyed: Arc::new(AtomicBool::new(false)),
 
-            ui_handle: gif_window
+            weak_gifs: Arc::new(RwLock::new(Vec::new())),
+
+            gif_window: gif_windows
         }
     }
 
@@ -77,15 +112,8 @@ impl AnimatedOverlay {
         let path = ffmpeg_utils::get_output_path(&gif_name);
 
         let folder_length = get_directory_length(&path)?;
-        for i in 1..=folder_length {
-            let path = format!("{path}/frame_{i:04}.png");
-            if let Ok(img) = slint::Image::load_from_path(std::path::Path::new(&path)) {
-                self.frames.push(img);
-            }
-            else {
-                return Err(Box::from("failed to load images"))
-            }
-        }
+
+        self.frames = image_utils::get_rendered_frames(gif_name.to_string())?;
 
         self.delays = image_utils::get_gif_delays(&file_path).unwrap_or(vec![]); 
         self.max_frames = folder_length;
@@ -95,27 +123,30 @@ impl AnimatedOverlay {
 
     pub fn start_loop(&self) {
         let frames = self.frames.clone();
-        let ui_handle = self.ui_handle.clone();
+        let gif_windows = self.gif_window.read().unwrap();
         let mut current_frame: usize = 0;
 
         let len = frames.len();
         let delays= self.delays.clone();
 
-        if let Some(ui) = self.ui_handle.upgrade() { 
-            ui.set_frames(ModelRc::new(VecModel::from(frames)));
+        for ui in gif_windows.iter() {
+            ui.set_frames(ModelRc::new(VecModel::from(frames.clone())));
         }
 
         let destroyed_clone = self.is_destroyed.clone();
+ 
+        let weak_gifs = self.weak_gifs.clone();
 
         thread::spawn(move || {
             while !destroyed_clone.load(std::sync::atomic::Ordering::Relaxed) {
-                let handle = ui_handle.clone();
+                let weak_gifs = weak_gifs.clone();
                 let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = handle.upgrade() {
-                        ui.set_currentImageIndex(current_frame as i32); 
+                    for ui_weak in weak_gifs.read().unwrap().iter(){ 
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_currentImageIndex(current_frame as i32); 
+                        }
                     }
                 });
-                
 
                 current_frame = (current_frame + 1) % len;
 

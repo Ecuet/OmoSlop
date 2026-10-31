@@ -10,3 +10,25 @@ export component DefaultButton {
         clicked => {clicked()}
     }
 }
+
+export component AnimatedImage {
+    in-out property <[image]> frames;
+    in-out property <int> current_frame;
+    in-out property <duration> timings: 100ms;
+
+    in-out property <bool> is_running;
+
+    Image {
+        source: frames[current_frame];
+        width: 100%;
+        height: 100%;
+    }
+
+    Timer {
+        interval: root.timings;
+        running: is_running;
+        triggered => {
+            root.current_frame = mod(current_frame + 1, frames.length);   
+        }
+    }
+}

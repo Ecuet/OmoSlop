@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::app::GifWindow;
 use slint::ComponentHandle;
 
@@ -5,6 +7,10 @@ use i_slint_backend_winit::{WinitWindowAccessor, winit::{platform::windows::Wind
 
 pub fn create() -> Result<GifWindow, Box<dyn std::error::Error>> {
     let gif_ui: GifWindow = GifWindow::new()?;
+
+    let id = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+
+    gif_ui.set_id(id as i32);
 
     let gif_ui_clone = gif_ui.as_weak();
     gif_ui.on_MoveWindow(move |x, y| {

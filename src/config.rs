@@ -1,19 +1,30 @@
 use std::{collections::HashMap, fs, io::{Read, Write}};
 
-use crate::image_utils::ImageType;
+
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
+pub struct Size {
+    pub width: u32,
+    pub height: u32
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct OverlayData {
+    pub overlay_x: i32,
+    pub overlay_y: i32
+}
+#[derive(Serialize, Deserialize)]
 pub struct GifData {
     pub name: String,
-
     pub selected_file_path: String,
     pub window_scale: f32,
+    pub image_size: Size,
 
     pub locked: bool,
 
-    pub overlay_x: i32,
-    pub overlay_y: i32
+    pub overlays: Vec<OverlayData>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -30,13 +41,6 @@ impl Config {
         Self { 
             gifs: HashMap::new()
         }
-    }
-
-    pub fn update_selected_file_path(&mut self, gif_name: &str, path: &str) {
-        
-        //self.selected_file_path = path.to_string();
-
-        self.save();
     }
 
     pub fn save(&self) {

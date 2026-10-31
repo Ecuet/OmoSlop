@@ -1,171 +1,198 @@
-use std::{rc::Rc, sync::{Arc, RwLock, Weak}};
+use std::{ collections::HashMap,  rc::Rc, sync::{ Arc, RwLock } };
 
-
-use slint::{Image, ModelRc, PhysicalPosition, ToSharedString, VecModel};
-
-use crate::{config::{self, Config}, image_utils, overlay::{AnimatedOverlay, Overlay, OverlayKind}, windows::{gif_window, main_window, settings_window, tray}};
+use pollster::FutureExt;
+use slint::{ Model, ModelRc, ToSharedString, VecModel };
+use crate::{
+	config::{ self, Config },
+	ignore_err,
+	image_utils,
+	overlay::{ OverlayKind },
+	overlays_utils,
+	windows::{main_window, settings_window, tray },
+};
 
 slint::include_modules!();
 
+pub type GifWindows = Arc<RwLock<Vec<GifWindow>>>;
 pub struct OverlayWindow {
-    gif_window: GifWindow,
-    overlay: OverlayKind
+	pub gif_windows: GifWindows,
+	pub overlay: OverlayKind,
 }
 
+pub type Overlays = Arc<RwLock<HashMap<String, OverlayWindow>>>;
 pub struct App {
-    main_window: MainWindow,
-    settings_window: SettingsWindow,
+	main_window: MainWindow,
+	settings_window: SettingsWindow,
 
-    tray: MainWindowTray,
+	tray: MainWindowTray,
 
-    images_ui_data: Rc<slint::VecModel<ImageData>>,
+	overlays: Overlays,
 
-    overlays: Arc<RwLock<Vec<OverlayWindow>>>,
-
-    config: Arc<RwLock<Config>>
+	config: Arc<RwLock<Config>>,
 }
 
 impl App {
-    pub fn new(config: Arc<RwLock<Config>>) -> Result<Self, Box<dyn std::error::Error>> {
-        let main_window = main_window::create()?;
-        let settings_window = settings_window::create()?;
+	pub fn new(config: Arc<RwLock<Config>>) -> Result<Self, Box<dyn std::error::Error>> {
+		let main_window = main_window::create()?;
+		let settings_window = settings_window::create()?;
 
-        let tray = tray::create(&main_window, config.clone())?;
+		let overlays = Arc::new(RwLock::new(HashMap::new()));
 
-       // let overlay = Arc::new(RwLock::new(OverlayKind::Animated(AnimatedOverlay::new(gif_window.as_weak()))));
+		let tray = tray::create(&main_window, config.clone(), &overlays.clone())?;
 
-        Ok(Self {
-            main_window: main_window,
-            settings_window: settings_window,
+		Ok(Self {
+			main_window: main_window,
+			settings_window: settings_window,
 
-            tray: tray,
-            
-            images_ui_data: Rc::new(VecModel::<ImageData>::default()),
+			tray: tray,
 
-            overlays: Arc::new(RwLock::new(Vec::new())),
+			overlays: overlays,
 
-            config: config
-        })
-    }
+			config: config,
+		})
+	}
 
-    fn load_settings(&self) {
-        // let config_read = self.config.read().unwrap();
+	fn load_settings(&self) {
+		let config = self.config.read().unwrap();
+		let images_ui_data = Rc::new(VecModel::<ImageData>::default());
 
-        // let scale = config_read.window_scale;
-        // image_utils::change_gif_scale(scale, &self.gif_window);
+		for (name, gif_data) in config.gifs.iter() {
+			images_ui_data.push(ImageData {
+				name: name.to_shared_string(),
+				frames: ModelRc::new(VecModel::from(image_utils::get_rendered_frames(name.to_string()).unwrap_or_default())),
+			});
 
-        // self.gif_window.window().set_position(PhysicalPosition::new(config_read.overlay_x, config_read.overlay_y));
+			ignore_err!(overlays_utils::create_all_overlays(&gif_data, &self.overlays));
 
-        self.main_window.set_ImagesData(ModelRc::from(self.images_ui_data.clone()));
-    }
+			ignore_err!(
+				overlays_utils::change_overlay_scale(
+					&self.overlays,
+					name.to_string(),
+					gif_data.window_scale,
+					&gif_data.image_size
+				)
+			);
+		}
+	
+		self.main_window.set_ImagesData(ModelRc::from(images_ui_data));
+	}
 
+	fn setup_settings(&self) {}
 
-    fn setup_settings(&self) {
-        //let weak_scale_ui = self.gif_window.as_weak();
-        //let file_config = self.config.clone();
-        // self.settings_window.on_ScaleChanged(move |scale: f32| {
-        //     if let Some(gif_ui) = weak_scale_ui.upgrade() {
-        //         image_utils::change_gif_scale(scale, &gif_ui);
+	fn setup_handlers(&self) {
+		let weak_main = self.main_window.as_weak();
+		let file_config = self.config.clone();
 
-        //         file_config.write().unwrap().window_scale = scale;
-        //     }
-        // });
+		self.main_window.on_FileChooser(move || {
+			let weak_main = weak_main.clone();
+			let file_config = file_config.clone();
 
-        // let weak_scale_ui = self.gif_window.as_weak();
-        // let file_config = self.config.clone();
-        // self.settings_window.on_LockChanged(move |state: bool| {
-        //     if let Some(gif_ui) = weak_scale_ui.upgrade() {
-        //         gif_ui.set_Locked(state);
+			std::thread::spawn(move || {
+				let Some(path) = image_utils::open_file_chooser().block_on() else {
+					return;
+				};
+				let Some(string_path) = path.to_str() else {
+					return;
+				};
 
-        //         file_config.write().unwrap().locked = state;
-        //     }
-        // });
+				let mut config = file_config.write().unwrap();
 
+				let Ok(name) = image_utils::get_file_name(&path) else {
+					return;
+				};
 
-    }
+				let Ok(size) = image_utils::get_image_size(&path) else {
+					return;
+				};
 
-    fn setup_handlers(&self) {
-        let weak_main = self.main_window.as_weak();
-        let file_config = self.config.clone();
-        let images_data = self.images_ui_data.clone();
+				let new_gif = config::GifData {
+					name: name.to_string(),
 
-        self.main_window.on_FileChooser(move || {
-            let Some(path) = image_utils::open_file_chooser() else { return };
-            let Some(string_path) = path.to_str() else { return };
-            let Some(main_window) = weak_main.upgrade() else { return };
-            
-            let mut config = file_config.write().unwrap();
+					selected_file_path: string_path.to_string(),
+					window_scale: 1.0,
 
-            let Ok(name) = image_utils::get_file_name(&path) else { return };
+					image_size: size,
 
-            let new_gif = config::GifData {
-                name: name.to_string(),
+					locked: false,
+					overlays: Vec::new(),
+				};
 
-                selected_file_path: string_path.to_string(),
-                window_scale: 1.0,
+				config.gifs.insert(name.to_string(), new_gif);
 
-                overlay_x: 0,
-                overlay_y: 0,
+				//let image_data = image_data.clone();
 
-                locked: false
-            };
+				slint
+					::invoke_from_event_loop(move || {
+						let Some(main_window) = weak_main.upgrade() else {
+							return;
+						};
 
-            config.gifs.insert(name.to_string(), new_gif);
+						let image_data = ImageData {
+							name: name.to_shared_string(),
+							frames: ModelRc::new(VecModel::from(image_utils::get_rendered_frames(name.to_string()).unwrap_or_default())),
+						};
 
-            images_data.push(ImageData {
-                 name: name.to_shared_string() 
-            });
+						let model = main_window.get_ImagesData();
+						model.as_any().downcast_ref::<VecModel<ImageData>>().unwrap().push(image_data);
+					})
+					.unwrap();
+			});
+		});
 
-            main_window.set_ImagesData(ModelRc::from(images_data.clone()));
-        });
+		let config = self.config.clone();
+		let overlays = self.overlays.clone();
+		self.main_window.on_AddOverlay(move |name| {
+			ignore_err!(overlays_utils::create_overlay_with_saving(
+				&mut *config.write().unwrap(),
+				name.to_string(),
+				&overlays
+			));
+		});
 
-        let config = self.config.clone();
-        let overlays = self.overlays.clone();
-        self.main_window.on_AddOverlay(move |name| {
-            let _ = Self::create_overlay(&config.write().unwrap(), name.to_string(), &overlays);
-        });
+		let config = self.config.clone();
+		let overlays = self.overlays.clone();
+		self.main_window.on_RemoveOverlay(move |name| {
+			ignore_err!(overlays_utils::remove_overlay(
+				&mut *config.write().unwrap(),
+				name.to_string(),
+				&overlays));
+		});
 
-        let weak_settings = self.settings_window.as_weak();
+		let config = self.config.clone();
+		let overlays = self.overlays.clone();
+		self.main_window.on_ChangeScale(move |name, scale| {
+			let size = config.read().unwrap().gifs.get(&name.to_string()).unwrap().image_size.clone();
 
-        self.main_window.on_OpenSettings(move || {
-            if let Some(settings_window) = weak_settings.upgrade() {
-                settings_window.show().unwrap();
-            }
-        });
-    }
-    fn create_overlay(config: &Config, name: String, overlays: &Arc<RwLock<Vec<OverlayWindow>>>) -> Result<(), Box<dyn std::error::Error>> {
-        let overlay_data = config.gifs.get(&name).ok_or("no")?;
+			ignore_err!(
+				overlays_utils::change_overlay_scale_with_saving(
+					&mut *config.write().unwrap(),
+					&overlays,
+					name.to_string(),
+					scale,
+					&size
+				)
+			);
+		});
 
-        let gif_window = gif_window::create()?;
-        let weak = gif_window.as_weak();
+		let weak_settings = self.settings_window.as_weak();
 
-        let mut loaded_overlay = OverlayKind::Animated(AnimatedOverlay::new(weak));
+		self.main_window.on_OpenSettings(move || {
+			if let Some(settings_window) = weak_settings.upgrade() {
+				settings_window.show().unwrap();
+			}
+		});
+	}
 
-        loaded_overlay.load_file(&overlay_data.selected_file_path, false)?;
-        gif_window.show()?;
+	pub fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+		self.setup_handlers();
+		self.load_settings();
+		self.setup_settings();
 
-        let overlay_window = OverlayWindow {
-            gif_window: gif_window,
-            overlay: loaded_overlay
-        };
-        
+		self.tray.show()?;
+		self.main_window.show()?;
 
-        overlays.write().unwrap().push(overlay_window);
+		slint::run_event_loop()?;
 
-        Ok(())
-    }
-
-    pub fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.setup_handlers();
-        self.load_settings();
-        self.setup_settings();
-
-        self.tray.show()?;
-        self.main_window.show()?;
-
-
-        slint::run_event_loop()?;
-
-        Ok(())
-    }
+		Ok(())
+	}
 }
