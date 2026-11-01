@@ -25,6 +25,7 @@ pub fn create() -> Result<MainWindow, Box<dyn std::error::Error>> {
 		}
 		return slint::CloseRequestResponse::KeepWindowShown;
 	});
+	
 
 	Ok(main_ui)
 }

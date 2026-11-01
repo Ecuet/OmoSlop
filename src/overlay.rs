@@ -77,7 +77,12 @@ impl Overlay for AnimatedOverlay {
 
     fn remove_gif_window(&mut self, gif_window: &GifWindow) {
         let mut write = self.weak_gifs.write().unwrap();
-        let find = write.iter().position(|x| x.upgrade().unwrap().get_id() == gif_window.get_id());
+        let find = write.iter().position(|x| { 
+            if let Some(ui) = x.upgrade() {
+                return ui.get_id() == gif_window.get_id() 
+            }
+            return true
+        });
         if let Some(id) = find {
             write.remove(id);
         }

@@ -29,6 +29,8 @@ export component GifWindow inherits Window {
 
     in-out property <int> id;
 
+    in-out property <bool> closing_allowed: false;
+
     max-width: root.ImageXWidth;
     max-height: root.ImageXHeight;
 
@@ -242,15 +244,24 @@ export component MainWindow inherits Window {
     callback RemoveOverlay(string);
 
     callback ChangeScale(string, float);
-    callback LockChanged(string ,bool);
+    callback LockChanged(string, bool);
 
-    property <string> current_selected_image : "";
+    callback UpdateUIOverlaySettings(string);
+
+    callback DeleteFromList(string);
+
+    in-out property <bool> ui_Lock;
+    in-out property <float> ui_Scale;
+
+    in-out property <string> current_selected_image: "";
     property <[image]> current_selected_image_frames;
 
     in-out property <[ImageData]> ImagesData;
 
     in-out property <bool> ClosedNotificationShown: false;
 
+    property <int> max_rows : max(1, floor((self.width * 0.6) / 105px));
+    
     title: "OmoSlop";
 
     preferred-height: 600px;
@@ -258,6 +269,8 @@ export component MainWindow inherits Window {
 
     min-height: 480px;
     min-width: 620px;
+
+
 
     VerticalLayout {
         width: 80%;
@@ -268,6 +281,7 @@ export component MainWindow inherits Window {
         cross-axis-alignment: end;
 
         DefaultButton {
+            visible: false;
             text: "Settings";
 
             clicked => {
@@ -276,37 +290,49 @@ export component MainWindow inherits Window {
         }
     }
 
-    HorizontalLayout {
+    ScrollView {
         width: 60%;
         height: 80%;
 
-        padding-top: 40px;
-        padding-left: 35px;
-
-        spacing: 75px;
-
         x: 10px;
 
-        alignment: start;
-        cross-axis-alignment: CrossAxisAlignment.start;
+        content-height: root.ImagesData.length * (45px / 2);
+        // padding-top: 40px;
+        // padding-left: 35px;
+
+        // spacing: 75px;
+
+        // alignment: start;
+        // cross-axis-alignment: CrossAxisAlignment.start;
 
         SelectGifButton {
             text: "Add Image";
+
+            x: 45px;
+            y: 50px;
 
             Clicked => {
                 FileChooser();
             }
         }
 
-        for data in root.ImagesData: SelectGifButton {
+        for data[i] in root.ImagesData: SelectGifButton {
+            x: mod(i, max_rows) * 105px + 45px; 
+            y: floor(i / max_rows) * 105px + 50px;
+
+            visible: i != 0;
+
             text: "";
             frames: data.frames;
 
             Clicked => {
                 current_selected_image = data.name;
                 current_selected_image_frames = data.frames;
+
+                UpdateUIOverlaySettings(data.name);
             }
         }
+        
     }
 
     ScrollView {
@@ -386,7 +412,7 @@ export component MainWindow inherits Window {
                     width: parent.width / 2;
 
                     step: 0.05;
-                    value: 1;
+                    value <=> root.ui_Scale;
 
                     changed(value) => {
                         ChangeScale(current_selected_image, value);
@@ -402,11 +428,23 @@ export component MainWindow inherits Window {
                 CheckBox {
                     x: 0;
 
+                    checked <=> root.ui_Lock;
+
                     toggled() => {
                         LockChanged(current_selected_image, self.checked);
                     }
                 }
             }
+
+            DefaultButton {
+                text: "Delete from list";
+                
+                clicked => {
+                    DeleteFromList(current_selected_image)
+                }
+            }
         }
     }
+
+    
 }
