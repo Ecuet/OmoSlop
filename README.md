@@ -1,6 +1,9 @@
 OmoSlop
 ===============
 
+<img width="1920" height="1032" alt="изображение" src="https://github.com/user-attachments/assets/c4891a04-1dc4-4a93-a0b9-2141865aff7a" />
+
+
 ## Run your funny gifs on screen ;3
 
 This app allows you to have any GIF or PNG you want on your screen as overlay <3\
