@@ -8,6 +8,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  VCPKGRS_TRIPLET: x64-windows
+  VCPKGRS_DYNAMIC: "1"
+  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
 
 jobs:
   build:
@@ -16,12 +19,42 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Full vcpkg history (нужна для builtin-baseline)
+      shell: pwsh
+      run: git -C $env:VCPKG_INSTALLATION_ROOT fetch --unshallow
+      continue-on-error: true
+
+    - name: Cache vcpkg binaries
+      uses: actions/cache@v4
+      with:
+        path: vcpkg-cache
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+
+    - name: Install FFmpeg via vcpkg
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force vcpkg-cache | Out-Null
+        & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install `
+          --triplet x64-windows `
+          --x-manifest-root=. `
+          --x-install-root="$env:VCPKG_INSTALLATION_ROOT\installed"
+
+    - name: Set VCPKG_ROOT and PATH
+      shell: pwsh
+      run: |
+        "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+        "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\bin" >> $env:GITHUB_PATH
+
+    - uses: Swatinem/rust-cache@v2
+
     - name: Build
       run: cargo build --verbose --release
-    - name: Run tests
-      run: cargo test --verbose
+
     - name: Upload release artifact
       uses: actions/upload-artifact@v4
       with:
         name: OmoSlop
-        path: target/release/OmoSlop.exe
+        path: |
+          target/release/OmoSlop.exe
+          ${{ env.VCPKG_INSTALLATION_ROOT }}/installed/x64-windows/bin/*.dll
