@@ -1,4 +1,5 @@
 gif/
 target/
+vcpkg_installed/
 ffmpeg.exe
 config.json

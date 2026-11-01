@@ -1,0 +1,8 @@
+get vcpkg
+then:
+ vcpkg install --triplet x64-windows
+
+put all files from vcpkg_installed to original vcpkg folder
+cargo run
+
+ez_ffmpeg works on old ffmpeg which vcpkg cant get easily

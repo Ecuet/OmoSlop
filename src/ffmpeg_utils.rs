@@ -46,11 +46,20 @@ pub fn convert_gif(file_path: &str, force: bool) -> Result<(), Box<dyn std::erro
 
     let output = format!("{}/frame_%04d.png", get_output_path(&gif_name));
 
-    let _status = Command::new("./ffmpeg.exe").args([
-        "-i",
-        file_path,
-        &output
-    ]).status()?;
+    // let _status = Command::new("./ffmpeg.exe").args([
+    //     "-i",
+    //     file_path,
+    //     &output
+    // ]).status()?;
+
+    let context = ez_ffmpeg::FfmpegContext::builder()
+    .input(file_path)
+    .output(&*output)
+    .build()?;
+
+    let result = ez_ffmpeg::FfmpegScheduler::new(context)
+    .start()?
+    .wait()?;
 
     Ok(())
 }

@@ -19,6 +19,7 @@ raw-window-handle = "0.6"
 winapi = { version = "0.3", features = ["winuser"] }
 windows-sys = { version = "0.59", features = [ "Win32_UI_WindowsAndMessaging" ] }
 webbrowser = "1.2.6"
+ez-ffmpeg = "0.19.3"
  
 [build-dependencies]
 slint-build = "1.18.1" 
