@@ -14,5 +14,3 @@ Also it eats almost zero RAM (which is kinda expensive nowadays, so have fun)
 Currently tested only on Windows.\
 I am unsure, if this app will work good on other OS.\
 Probably no.
-
-Also you need to have [FFmpeg](https://github.com/ffmpeg/ffmpeg) in the same folder with file.
