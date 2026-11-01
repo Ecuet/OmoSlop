@@ -67,7 +67,7 @@ export component MainWindowTray inherits SystemTrayIcon {
     callback quit();
     callback show();
 
-    icon: @image-url("assets/test.png");
+    icon: @image-url("assets/icon.png");
     tooltip: "OmoSlop";
 
     Menu {
@@ -84,6 +84,10 @@ export component MainWindowTray inherits SystemTrayIcon {
                 quit();
             }
         }
+    }
+
+    clicked => {
+        show();
     }
 }
 
@@ -270,7 +274,7 @@ export component MainWindow inherits Window {
     min-height: 480px;
     min-width: 620px;
 
-
+    icon: @image-url("assets/icon.png");
 
     VerticalLayout {
         width: 80%;

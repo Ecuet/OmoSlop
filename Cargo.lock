@@ -3,6 +3,26 @@
 version = 4
 
 [[package]]
+name = "OmoSlop"
+version = "0.1.0"
+dependencies = [
+ "gif",
+ "i-slint-backend-winit",
+ "image",
+ "notify-rust",
+ "pollster 1.0.1",
+ "raw-window-handle",
+ "rfd",
+ "serde",
+ "serde_json",
+ "slint",
+ "slint-build",
+ "webbrowser",
+ "winapi",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "ab_glyph"
 version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4562,26 +4582,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "slint-rust-template"
-version = "0.1.0"
-dependencies = [
- "gif",
- "i-slint-backend-winit",
- "image",
- "notify-rust",
- "pollster 1.0.1",
- "raw-window-handle",
- "rfd",
- "serde",
- "serde_json",
- "slint",
- "slint-build",
- "tokio",
- "winapi",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "slotmap"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5541,9 +5541,9 @@ dependencies = [
 
 [[package]]
 name = "webbrowser"
-version = "1.2.4"
+version = "1.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62c35be770821a214dbc362fc26908c853e776c0004294d0b10b8a6bad582f94"
+checksum = "fe8d20d0214027baf11b8b0cc307c1da7657d8f4db9aa956f7de27a6fb1acbd5"
 dependencies = [
  "jni",
  "log",

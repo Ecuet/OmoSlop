@@ -264,7 +264,7 @@ impl App {
 				}
 			}
 			main_window.set_current_selected_image("".into());
-
+ 
 			let output_path = ffmpeg_utils::get_output_path(&name.to_string());
 			ignore_err!(fs::remove_dir_all(output_path));
 		});

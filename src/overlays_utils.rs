@@ -188,5 +188,7 @@ pub fn change_overlay_scale_with_saving(
 
 	change_overlay_scale(&overlays, name.to_string(), scale, &original_size)?;
 
+	config.save();
+
 	Ok(())
 }
