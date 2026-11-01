@@ -23,6 +23,5 @@ jobs:
     - name: Upload release artifact
       uses: actions/upload-artifact@v4
       with:
-        name: <my-app>
-        path: target/${{ matrix.BUILD_TARGET }}/<my-app>
-     
+        name: OmoSlop
+        path: target/release/OmoSlop.exe
