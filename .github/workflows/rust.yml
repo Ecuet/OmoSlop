@@ -20,7 +20,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Full vcpkg history (нужна для builtin-baseline)
+    - name: Full vcpkg history 
       shell: pwsh
       run: |
         if (Test-Path "$env:VCPKG_INSTALLATION_ROOT\.git\shallow") {
