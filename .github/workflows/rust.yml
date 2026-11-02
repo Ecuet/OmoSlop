@@ -22,8 +22,11 @@ jobs:
 
     - name: Full vcpkg history (нужна для builtin-baseline)
       shell: pwsh
-      run: git -C $env:VCPKG_INSTALLATION_ROOT fetch --unshallow
-      continue-on-error: true
+      run: |
+        if (Test-Path "$env:VCPKG_INSTALLATION_ROOT\.git\shallow") {
+          git -C $env:VCPKG_INSTALLATION_ROOT fetch --unshallow
+        }
+        exit 0
 
     - name: Cache vcpkg binaries
       uses: actions/cache@v4
@@ -51,10 +54,19 @@ jobs:
     - name: Build
       run: cargo build --verbose --release
 
+    - name: Collect exe and DLLs
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force dist | Out-Null
+        Copy-Item target/release/OmoSlop.exe dist/
+        Copy-Item "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\bin\*.dll" dist/
+
+    - name: List dist
+      shell: pwsh
+      run: Get-ChildItem dist
+
     - name: Upload release artifact
       uses: actions/upload-artifact@v4
       with:
         name: OmoSlop
-        path: |
-          target/release/OmoSlop.exe
-          ${{ env.VCPKG_INSTALLATION_ROOT }}/installed/x64-windows/bin/*.dll
+        path: dist/
